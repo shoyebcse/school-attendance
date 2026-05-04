@@ -1,94 +1,65 @@
-"use client";
-
 import { Student, AttendanceRecord } from "./types";
-import { MOCK_STUDENTS, generateMockAttendance } from "./mockData";
 
-const STUDENTS_KEY = "sa_students";
-const ATTENDANCE_KEY = "sa_attendance";
-
-function isClient() {
-  return typeof window !== "undefined";
+export async function getStudents(): Promise<Student[]> {
+  const res = await fetch("/api/students");
+  return res.json();
 }
 
-export function getStudents(): Student[] {
-  if (!isClient()) return MOCK_STUDENTS;
-  const raw = localStorage.getItem(STUDENTS_KEY);
-  if (!raw) {
-    localStorage.setItem(STUDENTS_KEY, JSON.stringify(MOCK_STUDENTS));
-    return MOCK_STUDENTS;
-  }
-  return JSON.parse(raw) as Student[];
+export async function addStudent(student: Student): Promise<void> {
+  await fetch("/api/students", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(student),
+  });
 }
 
-export function saveStudents(students: Student[]): void {
-  if (!isClient()) return;
-  localStorage.setItem(STUDENTS_KEY, JSON.stringify(students));
+export async function updateStudent(student: Student): Promise<void> {
+  await fetch(`/api/students/${student.id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(student),
+  });
 }
 
-export function addStudent(student: Student): void {
-  const students = getStudents();
-  students.push(student);
-  saveStudents(students);
+export async function deleteStudent(id: string): Promise<void> {
+  await fetch(`/api/students/${id}`, { method: "DELETE" });
 }
 
-export function updateStudent(updated: Student): void {
-  const students = getStudents();
-  const idx = students.findIndex((s) => s.id === updated.id);
-  if (idx !== -1) {
-    students[idx] = updated;
-    saveStudents(students);
-  }
+export async function getStudentById(id: string): Promise<Student | undefined> {
+  const res = await fetch(`/api/students/${id}`);
+  if (!res.ok) return undefined;
+  return res.json();
 }
 
-export function deleteStudent(id: string): void {
-  const students = getStudents().filter((s) => s.id !== id);
-  saveStudents(students);
-  // Also remove attendance records
-  const records = getAttendance().filter((r) => r.studentId !== id);
-  saveAttendance(records);
+export async function getAttendance(): Promise<AttendanceRecord[]> {
+  const res = await fetch("/api/attendance");
+  return res.json();
 }
 
-export function getAttendance(): AttendanceRecord[] {
-  if (!isClient()) return [];
-  const raw = localStorage.getItem(ATTENDANCE_KEY);
-  if (!raw) {
-    const mock = generateMockAttendance();
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(mock));
-    return mock;
-  }
-  return JSON.parse(raw) as AttendanceRecord[];
+export async function getAttendanceForDate(date: string): Promise<AttendanceRecord[]> {
+  const res = await fetch(`/api/attendance?date=${date}`);
+  return res.json();
 }
 
-export function saveAttendance(records: AttendanceRecord[]): void {
-  if (!isClient()) return;
-  localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(records));
+export async function getAttendanceForStudent(studentId: string): Promise<AttendanceRecord[]> {
+  const res = await fetch(`/api/attendance?studentId=${encodeURIComponent(studentId)}`);
+  return res.json();
 }
 
-export function upsertAttendanceRecord(record: AttendanceRecord): void {
-  const records = getAttendance();
-  const idx = records.findIndex(
-    (r) => r.studentId === record.studentId && r.date === record.date
-  );
-  if (idx !== -1) {
-    records[idx] = record;
-  } else {
-    records.push(record);
-  }
-  saveAttendance(records);
+export async function upsertAttendanceRecord(record: AttendanceRecord): Promise<void> {
+  await fetch("/api/attendance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(record),
+  });
 }
 
-export function getAttendanceForDate(date: string): AttendanceRecord[] {
-  return getAttendance().filter((r) => r.date === date);
-}
-
-export function getAttendanceForStudent(studentId: string): AttendanceRecord[] {
-  return getAttendance()
-    .filter((r) => r.studentId === studentId)
-    .sort((a, b) => b.date.localeCompare(a.date));
-}
-
-export function getStudentById(id: string): Student | undefined {
-  return getStudents().find((s) => s.id === id);
+export async function upsertAttendanceRecords(records: AttendanceRecord[]): Promise<void> {
+  await fetch("/api/attendance", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(records),
+  });
 }
 
 export function generateId(): string {

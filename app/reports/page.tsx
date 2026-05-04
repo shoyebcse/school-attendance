@@ -34,8 +34,8 @@ export default function ReportsPage() {
   >([]);
 
   useEffect(() => {
-    const students = getStudents();
-    const records = getAttendance();
+    async function load() {
+      const [students, records] = await Promise.all([getStudents(), getAttendance()]);
 
     // Per-student stats
     const studentStats: StudentStat[] = students.map((s) => {
@@ -69,6 +69,8 @@ export default function ReportsPage() {
       counted++;
     }
     setWeeklyData(weekly);
+    }
+    void load();
   }, []);
 
   const avgRate =

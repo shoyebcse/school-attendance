@@ -31,15 +31,18 @@ export default function StudentDetailPage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [editOpen, setEditOpen] = useState(false);
 
-  function reload() {
-    const s = getStudentById(id);
+  async function reload() {
+    const [s, recs] = await Promise.all([
+      getStudentById(id),
+      getAttendanceForStudent(id),
+    ]);
     if (!s) { router.push("/students"); return; }
     setStudent(s);
-    setRecords(getAttendanceForStudent(id));
+    setRecords(recs);
   }
 
   useEffect(() => {
-    reload();
+    void reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -52,10 +55,10 @@ export default function StudentDetailPage() {
   const excused = records.filter((r) => r.status === "excused").length;
   const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
 
-  function handleSave(data: Omit<Student, "id">) {
-    updateStudent({ ...data, id: student!.id });
+  async function handleSave(data: Omit<Student, "id">) {
+    await updateStudent({ ...data, id: student!.id });
     setEditOpen(false);
-    reload();
+    void reload();
   }
 
   return (

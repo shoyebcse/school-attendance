@@ -27,12 +27,17 @@ export default function Dashboard() {
   const today = format(new Date(), "yyyy-MM-dd");
 
   useEffect(() => {
-    const s = getStudents();
-    const t = getAttendanceForDate(today);
-    const all = getAttendance();
-    setStudents(s);
-    setTodayRecords(t);
-    setAllRecords(all);
+    async function load() {
+      const [s, t, all] = await Promise.all([
+        getStudents(),
+        getAttendanceForDate(today),
+        getAttendance(),
+      ]);
+      setStudents(s);
+      setTodayRecords(t);
+      setAllRecords(all);
+    }
+    void load();
   }, [today]);
 
   const totalStudents = students.length;

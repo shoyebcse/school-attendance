@@ -6,7 +6,7 @@ import { Save, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getStudents,
   getAttendanceForDate,
-  upsertAttendanceRecord,
+  upsertAttendanceRecords,
   generateId,
 } from "@/lib/store";
 import { Student, AttendanceRecord, AttendanceStatus } from "@/lib/types";
@@ -33,9 +33,11 @@ export default function AttendancePage() {
   const [saved, setSaved] = useState(false);
   const [filterSection, setFilterSection] = useState("");
 
-  function loadForDate(d: string) {
-    const s = getStudents();
-    const existing = getAttendanceForDate(d);
+  async function loadForDate(d: string) {
+    const [s, existing] = await Promise.all([
+      getStudents(),
+      getAttendanceForDate(d),
+    ]);
     setStudents(s);
     const map: Record<string, DraftRecord> = {};
     for (const st of s) {
@@ -51,7 +53,8 @@ export default function AttendancePage() {
   }
 
   useEffect(() => {
-    loadForDate(date);
+    void loadForDate(date);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   function setStatus(studentId: string, status: AttendanceStatus) {
@@ -83,17 +86,15 @@ export default function AttendancePage() {
     setSaved(false);
   }
 
-  function handleSave() {
-    for (const rec of Object.values(draft)) {
-      const record: AttendanceRecord = {
-        id: generateId(),
-        studentId: rec.studentId,
-        date,
-        status: rec.status,
-        notes: rec.notes || undefined,
-      };
-      upsertAttendanceRecord(record);
-    }
+  async function handleSave() {
+    const records: AttendanceRecord[] = Object.values(draft).map((rec) => ({
+      id: generateId(),
+      studentId: rec.studentId,
+      date,
+      status: rec.status,
+      notes: rec.notes || undefined,
+    }));
+    await upsertAttendanceRecords(records);
     setSaved(true);
   }
 
@@ -127,7 +128,7 @@ export default function AttendancePage() {
           </p>
         </div>
         <button
-          onClick={handleSave}
+          onClick={() => { void handleSave(); }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
             saved
               ? "bg-green-100 text-green-700"
@@ -287,7 +288,7 @@ export default function AttendancePage() {
       {/* Save button at bottom */}
       <div className="flex justify-end">
         <button
-          onClick={handleSave}
+          onClick={() => { void handleSave(); }}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all ${
             saved
               ? "bg-green-100 text-green-700"

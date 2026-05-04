@@ -17,12 +17,13 @@ export default function StudentsPage() {
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  function reload() {
-    setStudents(getStudents());
+  async function reload() {
+    setStudents(await getStudents());
   }
 
   useEffect(() => {
-    reload();
+    void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const classes = [...new Set(students.map((s) => s.class))].sort();
@@ -40,21 +41,21 @@ export default function StudentsPage() {
     return matchSearch && matchClass && matchSection;
   });
 
-  function handleSave(data: Omit<Student, "id">) {
+  async function handleSave(data: Omit<Student, "id">) {
     if (editStudent) {
-      updateStudent({ ...data, id: editStudent.id });
+      await updateStudent({ ...data, id: editStudent.id });
     } else {
-      addStudent({ ...data, id: generateId() });
+      await addStudent({ ...data, id: generateId() });
     }
     setModalOpen(false);
     setEditStudent(null);
-    reload();
+    void reload();
   }
 
-  function handleDelete(id: string) {
-    deleteStudent(id);
+  async function handleDelete(id: string) {
+    await deleteStudent(id);
     setDeleteConfirm(null);
-    reload();
+    void reload();
   }
 
   return (
@@ -220,7 +221,7 @@ export default function StudentsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => handleDelete(deleteConfirm)}
+                onClick={() => { void handleDelete(deleteConfirm); }}
                 className="btn-danger"
               >
                 Delete
