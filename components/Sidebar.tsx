@@ -8,29 +8,38 @@ import {
   ClipboardCheck,
   BarChart2,
   GraduationCap,
+  UserCog,
   Menu,
   X,
   LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getSession, logout, Teacher } from "@/lib/auth";
+import { getSession, logout, User } from "@/lib/auth";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/students", label: "Students", icon: Users },
-  { href: "/attendance", label: "Attendance", icon: ClipboardCheck },
-  { href: "/reports", label: "Reports", icon: BarChart2 },
+const TEACHER_NAV = [
+  { href: "/",           label: "Dashboard", icon: LayoutDashboard },
+  { href: "/students",   label: "Students",  icon: Users },
+  { href: "/attendance", label: "Attendance",icon: ClipboardCheck },
+  { href: "/reports",    label: "Reports",   icon: BarChart2 },
+];
+
+const MANAGER_NAV = [
+  { href: "/",         label: "Dashboard", icon: LayoutDashboard },
+  { href: "/teachers", label: "Teachers",  icon: UserCog },
+  { href: "/reports",  label: "Reports",   icon: BarChart2 },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [teacher, setTeacher] = useState<Teacher | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    setTeacher(getSession());
+    setUser(getSession());
   }, []);
+
+  const navItems = user?.role === "manager" ? MANAGER_NAV : TEACHER_NAV;
 
   function handleLogout() {
     logout();
@@ -78,7 +87,7 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          {navItems.map(({ href, label, icon: Icon }) => {
             const active =
               href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
@@ -102,16 +111,24 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Teacher info + logout */}
+        {/* User info + logout */}
         <div className="px-4 py-4 border-t border-blue-700 space-y-2">
-          {teacher && (
+          {user && (
             <div className="flex items-center gap-3 px-2 py-1">
-              <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
-                {teacher.initials}
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                  user.role === "manager" ? "bg-amber-600" : "bg-blue-600"
+                }`}
+              >
+                {user.initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{teacher.name}</p>
-                <p className="text-blue-300 text-xs truncate">{teacher.classes}</p>
+                <p className="text-sm font-medium truncate">{user.name}</p>
+                <p className="text-blue-300 text-xs truncate capitalize">
+                  {user.role === "manager"
+                    ? "School Manager"
+                    : user.classes || user.subject || "Teacher"}
+                </p>
               </div>
             </div>
           )}

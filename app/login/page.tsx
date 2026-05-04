@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Eye, EyeOff, LogIn } from "lucide-react";
+import { GraduationCap, Eye, EyeOff, LogIn, ShieldCheck, BookOpen } from "lucide-react";
 import { login, isAuthenticated, DEMO_ACCOUNTS } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -17,7 +17,7 @@ export default function LoginPage() {
     if (isAuthenticated()) router.replace("/");
   }, [router]);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!email.trim() || !password.trim()) {
@@ -25,23 +25,23 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    // Simulate a brief loading state for UX
-    setTimeout(() => {
-      const teacher = login(email.trim(), password);
-      if (teacher) {
-        router.replace("/");
-      } else {
-        setError("Invalid email or password. Please try again.");
-        setLoading(false);
-      }
-    }, 600);
+    const user = await login(email.trim(), password);
+    if (user) {
+      router.replace("/");
+    } else {
+      setError("Invalid email or password. Please try again.");
+      setLoading(false);
+    }
   }
 
-  function fillDemo(demoEmail: string) {
+  function fillDemo(demoEmail: string, demoPassword: string) {
     setEmail(demoEmail);
-    setPassword("teacher123");
+    setPassword(demoPassword);
     setError("");
   }
+
+  const managerAccounts = DEMO_ACCOUNTS.filter((a) => a.role === "manager");
+  const teacherAccounts = DEMO_ACCOUNTS.filter((a) => a.role === "teacher");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 flex items-center justify-center p-4">
@@ -57,11 +57,9 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-1">
-            Teacher Login
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-1">Sign In</h2>
           <p className="text-sm text-gray-500 mb-6">
-            Sign in to manage your classroom attendance
+            Sign in to manage your school
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -120,38 +118,56 @@ export default function LoginPage() {
           </form>
 
           {/* Demo accounts */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wide">
-              Demo Accounts
-            </p>
-            <div className="space-y-2">
-              {DEMO_ACCOUNTS.map((a) => (
+          <div className="mt-6 pt-6 border-t border-gray-100 space-y-4">
+            {/* Manager */}
+            <div>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <ShieldCheck size={11} />
+                Manager Account
+              </p>
+              {managerAccounts.map((a) => (
                 <button
                   key={a.id}
-                  onClick={() => fillDemo(a.email)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-colors text-left"
+                  onClick={() => fillDemo(a.email, a.hint)}
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 border border-transparent hover:border-amber-200 transition-colors text-left"
                 >
-                  <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  <div className="w-8 h-8 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                     {a.initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {a.name}
-                    </p>
+                    <p className="text-sm font-medium text-gray-800 truncate">{a.name}</p>
                     <p className="text-xs text-gray-400 truncate">{a.email}</p>
                   </div>
-                  <span className="text-xs text-blue-500 font-medium flex-shrink-0">
-                    Use
-                  </span>
+                  <span className="text-xs text-amber-600 font-medium flex-shrink-0">Use</span>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-2 text-center">
-              Password for all demo accounts:{" "}
-              <span className="font-mono font-medium text-gray-600">
-                teacher123
-              </span>
-            </p>
+
+            {/* Teachers */}
+            <div>
+              <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide flex items-center gap-1.5">
+                <BookOpen size={11} />
+                Teacher Accounts
+              </p>
+              <div className="space-y-2">
+                {teacherAccounts.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => fillDemo(a.email, a.hint)}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {a.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{a.name}</p>
+                      <p className="text-xs text-gray-400 truncate">{a.email}</p>
+                    </div>
+                    <span className="text-xs text-blue-500 font-medium flex-shrink-0">Use</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

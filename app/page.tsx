@@ -9,18 +9,128 @@ import {
   TrendingUp,
   Calendar,
   Clock,
+  UserCog,
+  BookOpen,
+  GraduationCap,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
   getStudents,
   getAttendanceForDate,
   getAttendance,
+  getTeachers,
 } from "@/lib/store";
-import { Student, AttendanceRecord } from "@/lib/types";
+import { Student, AttendanceRecord, TeacherWithProfile } from "@/lib/types";
+import { getRole } from "@/lib/auth";
 import StatusBadge from "@/components/StatusBadge";
 import Avatar from "@/components/Avatar";
 
 export default function Dashboard() {
+  const [role, setRole] = useState<"teacher" | "manager" | null>(null);
+
+  useEffect(() => {
+    setRole(getRole());
+  }, []);
+
+  if (role === "manager") return <ManagerDashboard />;
+  if (role === "teacher") return <TeacherDashboard />;
+  return null;
+}
+
+// ── Manager dashboard ─────────────────────────────────────────────────────────
+
+function ManagerDashboard() {
+  const [teachers, setTeachers] = useState<TeacherWithProfile[]>([]);
+
+  useEffect(() => {
+    void getTeachers().then(setTeachers);
+  }, []);
+
+  const subjectSet = new Set(teachers.flatMap((t) => t.subjects));
+  const classSet   = new Set(teachers.flatMap((t) => t.classesAssigned));
+
+  const stats = [
+    { title: "Total Teachers",    value: teachers.length,    icon: UserCog,     bg: "bg-blue-50",   text: "text-blue-600" },
+    { title: "Subjects Covered",  value: subjectSet.size,    icon: BookOpen,    bg: "bg-purple-50", text: "text-purple-600" },
+    { title: "Classes Covered",   value: classSet.size,      icon: GraduationCap, bg: "bg-green-50",  text: "text-green-600" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-0.5 flex items-center gap-1.5">
+            <Calendar size={14} />
+            {format(new Date(), "EEEE, MMMM d, yyyy")}
+          </p>
+        </div>
+        <Link href="/teachers" className="btn-primary flex items-center gap-2">
+          <UserCog size={16} />
+          Manage Teachers
+        </Link>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {stats.map((card) => (
+          <div key={card.title} className="card">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-gray-500 font-medium">{card.title}</p>
+              <div className={`p-2 rounded-lg ${card.bg}`}>
+                <card.icon size={18} className={card.text} />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gray-900">{card.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Teacher list preview */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-800">Teachers</h2>
+          <Link href="/teachers" className="text-blue-600 text-sm hover:underline flex items-center gap-1">
+            View all <ArrowRight size={13} />
+          </Link>
+        </div>
+        {teachers.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 text-sm">
+            No teachers yet.{" "}
+            <Link href="/teachers" className="text-blue-500 hover:underline">Add the first one.</Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {teachers.slice(0, 6).map((t) => (
+              <Link
+                key={t.id}
+                href={`/teachers/${t.id}`}
+                className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <Avatar name={t.name} size="sm" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{t.name}</p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {t.subjects.join(", ") || "No subjects"} · {t.classesAssigned.join(", ") || "No classes"}
+                  </p>
+                </div>
+                {t.qualification && (
+                  <span className="text-xs text-gray-400 flex-shrink-0 hidden sm:block">{t.qualification}</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Teacher dashboard (existing) ──────────────────────────────────────────────
+
+function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [todayRecords, setTodayRecords] = useState<AttendanceRecord[]>([]);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
@@ -47,7 +157,6 @@ export default function Dashboard() {
   const absentToday = todayRecords.filter((r) => r.status === "absent").length;
   const markedToday = todayRecords.length;
 
-  // Overall attendance rate (last 30 days)
   const presentRecords = allRecords.filter(
     (r) => r.status === "present" || r.status === "late"
   ).length;
@@ -56,21 +165,11 @@ export default function Dashboard() {
       ? Math.round((presentRecords / allRecords.length) * 100)
       : 0;
 
-  // Recent activity: last 5 attendance records for today
-  const recentActivity = todayRecords
-    .slice(-5)
-    .reverse()
-    .map((r) => ({
-      ...r,
-      student: students.find((s) => s.id === r.studentId),
-    }));
-
   const statsCards = [
     {
       title: "Total Students",
       value: totalStudents,
       icon: Users,
-      color: "bg-blue-500",
       bg: "bg-blue-50",
       text: "text-blue-600",
     },
@@ -78,7 +177,6 @@ export default function Dashboard() {
       title: "Present Today",
       value: presentToday,
       icon: UserCheck,
-      color: "bg-green-500",
       bg: "bg-green-50",
       text: "text-green-600",
       sub: markedToday > 0 ? `${markedToday} marked` : "Not marked yet",
@@ -87,7 +185,6 @@ export default function Dashboard() {
       title: "Absent Today",
       value: absentToday,
       icon: UserX,
-      color: "bg-red-500",
       bg: "bg-red-50",
       text: "text-red-600",
     },
@@ -95,7 +192,6 @@ export default function Dashboard() {
       title: "Attendance Rate",
       value: `${rate}%`,
       icon: TrendingUp,
-      color: "bg-purple-500",
       bg: "bg-purple-50",
       text: "text-purple-600",
       sub: "Last 30 days",
@@ -114,7 +210,7 @@ export default function Dashboard() {
           </p>
         </div>
         <Link href="/attendance" className="btn-primary flex items-center gap-2">
-          <ClockIcon />
+          <Clock size={16} />
           Mark Attendance
         </Link>
       </div>
@@ -130,7 +226,7 @@ export default function Dashboard() {
               </div>
             </div>
             <p className="text-3xl font-bold text-gray-900">{card.value}</p>
-            {card.sub && (
+            {"sub" in card && card.sub && (
               <p className="text-xs text-gray-400 mt-1">{card.sub}</p>
             )}
           </div>
@@ -141,9 +237,7 @@ export default function Dashboard() {
         {/* Today's attendance summary */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-800">
-              Today&apos;s Attendance
-            </h2>
+            <h2 className="font-semibold text-gray-800">Today&apos;s Attendance</h2>
             {markedToday === 0 && (
               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
                 Not marked yet
@@ -160,46 +254,25 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Progress bar */}
               <div>
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Present</span>
-                  <span>
-                    {presentToday}/{totalStudents}
-                  </span>
+                  <span>{presentToday}/{totalStudents}</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
                   <div
                     className="bg-green-500 h-2 rounded-full transition-all"
                     style={{
-                      width: `${
-                        totalStudents > 0
-                          ? (presentToday / totalStudents) * 100
-                          : 0
-                      }%`,
+                      width: `${totalStudents > 0 ? (presentToday / totalStudents) * 100 : 0}%`,
                     }}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3 pt-2">
                 {[
-                  {
-                    label: "Present",
-                    count: todayRecords.filter((r) => r.status === "present")
-                      .length,
-                    cls: "text-green-600 bg-green-50",
-                  },
-                  {
-                    label: "Absent",
-                    count: absentToday,
-                    cls: "text-red-600 bg-red-50",
-                  },
-                  {
-                    label: "Late",
-                    count: todayRecords.filter((r) => r.status === "late")
-                      .length,
-                    cls: "text-yellow-600 bg-yellow-50",
-                  },
+                  { label: "Present", count: todayRecords.filter((r) => r.status === "present").length, cls: "text-green-600 bg-green-50" },
+                  { label: "Absent",  count: absentToday, cls: "text-red-600 bg-red-50" },
+                  { label: "Late",    count: todayRecords.filter((r) => r.status === "late").length, cls: "text-yellow-600 bg-yellow-50" },
                 ].map(({ label, count, cls }) => (
                   <div key={label} className={`rounded-lg p-3 text-center ${cls}`}>
                     <p className="text-2xl font-bold">{count}</p>
@@ -215,10 +288,7 @@ export default function Dashboard() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold text-gray-800">Students</h2>
-            <Link
-              href="/students"
-              className="text-blue-600 text-sm hover:underline"
-            >
+            <Link href="/students" className="text-blue-600 text-sm hover:underline">
               View all
             </Link>
           </div>
@@ -233,9 +303,7 @@ export default function Dashboard() {
                 >
                   <Avatar name={s.name} size="sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {s.name}
-                    </p>
+                    <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
                     <p className="text-xs text-gray-400">
                       Roll {s.rollNumber} · Class {s.class}-{s.section}
                     </p>
@@ -253,10 +321,6 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
-
-function ClockIcon() {
-  return <Clock size={16} />;
 }
 
 function ClipboardIcon({ className }: { className?: string }) {

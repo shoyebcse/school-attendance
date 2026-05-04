@@ -1,57 +1,29 @@
 "use client";
 
-export interface Teacher {
-  id: string;
-  name: string;
-  email: string;
-  subject: string;
-  classes: string;
-  initials: string;
-}
+import { User, Role } from "./types";
 
-const TEACHERS: Array<Teacher & { password: string }> = [
-  {
-    id: "t1",
-    name: "Ms. Sarah Miller",
-    email: "sarah.miller@school.edu",
-    password: "teacher123",
-    subject: "Mathematics",
-    classes: "Class 10 A & B",
-    initials: "SM",
-  },
-  {
-    id: "t2",
-    name: "Mr. John Smith",
-    email: "john.smith@school.edu",
-    password: "teacher123",
-    subject: "Science",
-    classes: "Class 9 A & B",
-    initials: "JS",
-  },
-  {
-    id: "t3",
-    name: "Ms. Priya Patel",
-    email: "priya.patel@school.edu",
-    password: "teacher123",
-    subject: "English",
-    classes: "Class 8 A & B",
-    initials: "PP",
-  },
-];
+export type { User };
+// Backward-compat alias
+export type Teacher = User;
 
 const SESSION_KEY = "sa_session";
 
-export function login(email: string, password: string): Teacher | null {
-  const match = TEACHERS.find(
-    (t) =>
-      t.email.toLowerCase() === email.toLowerCase() && t.password === password
-  );
-  if (!match) return null;
-  const { password: _, ...teacher } = match;
-  if (typeof window !== "undefined") {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(teacher));
+export async function login(email: string, password: string): Promise<User | null> {
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) return null;
+    const user: User = await res.json();
+    if (typeof window !== "undefined") {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    }
+    return user;
+  } catch {
+    return null;
   }
-  return teacher;
 }
 
 export function logout(): void {
@@ -60,12 +32,18 @@ export function logout(): void {
   }
 }
 
-export function getSession(): Teacher | null {
+export function getSession(): User | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as Teacher;
+    const data = JSON.parse(raw) as User;
+    // Clear pre-RBAC sessions that lack a role field
+    if (!data.role) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }
@@ -75,7 +53,41 @@ export function isAuthenticated(): boolean {
   return getSession() !== null;
 }
 
-export const DEMO_ACCOUNTS = TEACHERS.map(({ password: _, ...t }) => ({
-  ...t,
-  hint: "teacher123",
-}));
+export function getRole(): Role | null {
+  return getSession()?.role ?? null;
+}
+
+export const DEMO_ACCOUNTS = [
+  {
+    id: "m1",
+    name: "Principal Johnson",
+    email: "principal@school.edu",
+    role: "manager" as Role,
+    initials: "PJ",
+    hint: "admin123",
+  },
+  {
+    id: "t1",
+    name: "Ms. Sarah Miller",
+    email: "sarah.miller@school.edu",
+    role: "teacher" as Role,
+    initials: "SM",
+    hint: "teacher123",
+  },
+  {
+    id: "t2",
+    name: "Mr. John Smith",
+    email: "john.smith@school.edu",
+    role: "teacher" as Role,
+    initials: "JS",
+    hint: "teacher123",
+  },
+  {
+    id: "t3",
+    name: "Ms. Priya Patel",
+    email: "priya.patel@school.edu",
+    role: "teacher" as Role,
+    initials: "PP",
+    hint: "teacher123",
+  },
+];

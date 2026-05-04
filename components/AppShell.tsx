@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { isAuthenticated } from "@/lib/auth";
+import { isAuthenticated, getRole } from "@/lib/auth";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,19 +13,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {
-    if (!isLoginPage && !isAuthenticated()) {
-      router.replace("/login");
-    } else {
+    if (isLoginPage) {
       setChecking(false);
+      return;
     }
-  }, [isLoginPage, router]);
 
-  // Login page: full-screen, no sidebar, no auth check needed
+    if (!isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+
+    const role = getRole();
+
+    // Manager accessing teacher-only routes → redirect to /teachers
+    if (
+      role === "manager" &&
+      (pathname.startsWith("/students") || pathname.startsWith("/attendance"))
+    ) {
+      router.replace("/teachers");
+      return;
+    }
+
+    // Teacher accessing manager-only routes → redirect to /
+    if (role === "teacher" && pathname.startsWith("/teachers")) {
+      router.replace("/");
+      return;
+    }
+
+    setChecking(false);
+  }, [isLoginPage, pathname, router]);
+
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // Protected pages: show spinner while checking session
   if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
